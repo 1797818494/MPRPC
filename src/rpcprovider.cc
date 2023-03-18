@@ -10,7 +10,7 @@ void RpcProvider::NotifyService(google::protobuf::Service* service) {
     const google::protobuf::ServiceDescriptor* pserviceDesc = service->GetDescriptor();
     std::string service_name = pserviceDesc->name();
     int methodCnt = pserviceDesc->method_count();
-
+    LOG_INFO("service_name:%s", service_name.c_str());
     for(int i = 0; i < methodCnt; ++i) {
         const google::protobuf::MethodDescriptor* pmethodDesc = pserviceDesc->method(i);
         std::string method_name = pmethodDesc->name();
@@ -21,14 +21,29 @@ void RpcProvider::NotifyService(google::protobuf::Service* service) {
 }
 
 void RpcProvider::Run() {
-    std::string ip = MprpcApplication::GetInstance().GetConfig().Load("rpcserviceip");
-    uint16_t port = atoi(MprpcApplication::GetInstance().GetConfig().Load("rpcserviceport").c_str());
+    std::string ip = MprpcApplication::GetInstance().GetConfig().Load("rpcserverip");
+    uint16_t port = atoi(MprpcApplication::GetInstance().GetConfig().Load("rpcserverport").c_str());
     muduo::net::InetAddress address(ip, port);
     muduo::net::TcpServer server(&m_eventLoop, address, "RpcProvider");
     server.setConnectionCallback(std::bind(&RpcProvider::OnConnetion, this, std::placeholders::_1));
     server.setMessageCallback(std::bind(&RpcProvider::OnMessage, this, std::placeholders::_1, std::placeholders::_2,
     std::placeholders::_3));
     server.setThreadNum(4);
+    ZkClient zkCli;
+    zkCli.Start();
+    for(auto& sp : m_serviceMap) {
+        std::string service_path = "/" + sp.first;
+        zkCli.Create(service_path.c_str(), nullptr, 0);
+        for(auto &mp : sp.second.m_methodMap) {
+            // /service_name/method_name   /UserServiceRpc/Login 存储当前这个rpc服务节点主机的ip和port
+            std::string method_path = service_path + "/" + mp.first;
+            char method_path_data[128] = {0};
+            sprintf(method_path_data, "%s:%d", ip.c_str(), port);
+            // ZOO_EPHEMERAL表示znode是一个临时性节点
+            zkCli.Create(method_path.c_str(), method_path_data, strlen(method_path_data), ZOO_EPHEMERAL);
+        }
+    }
+    std::cout << "RpcProvider start service at ip:" << ip << " port:" << port << std::endl;
     server.start();
     m_eventLoop.loop();
 }

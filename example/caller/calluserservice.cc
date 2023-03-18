@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     // 一次rpc调用完成，读调用的结果
     if (0 == response.result().errcode())
     {
-        std::cout << "rpc login response success:" << response.sucess() << std::endl;
+        std::cout << "rpc login response success:" << response.success() << std::endl;
     }
     else
     {
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     // 一次rpc调用完成，读调用的结果
     if (0 == rsp.result().errcode())
     {
-        std::cout << "rpc register response success:" << rsp.sucess() << std::endl;
+        std::cout << "rpc register response success:" << rsp.succes() << std::endl;
     }
     else
     {
